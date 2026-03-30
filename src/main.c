@@ -3,19 +3,16 @@
 #include <SDL2/SDL_ttf.h>
 #include <SDL2/SDL_mixer.h>
 #include "scores.h"
+#include "menu.h"
 
 int main() {
-    // ── INIT SDL ──────────────────────────────────────────
-    if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO) != 0) {
-        printf("Erreur SDL_Init: %s\n", SDL_GetError());
-        return 1;
-    }
+    SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO);
     TTF_Init();
     IMG_Init(IMG_INIT_PNG);
     Mix_OpenAudio(44100, MIX_DEFAULT_FORMAT, 2, 2048);
 
     SDL_Window *win = SDL_CreateWindow(
-        "Mon Jeu - Meilleurs Scores",
+        "Mon Jeu",
         SDL_WINDOWPOS_CENTERED,
         SDL_WINDOWPOS_CENTERED,
         800, 600, 0);
@@ -27,54 +24,75 @@ int main() {
         "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf",
         22);
 
-    if (!font) {
-        printf("Erreur font: %s\n", TTF_GetError());
-        return 1;
-    }
+    // ── INIT ─────────────────────────────────────────────
+    Menu menu;
+    initMenu(&menu);
 
-    // ── INIT SOUS-MENU SCORES ─────────────────────────────
     SousMenuScores sm;
     initSousMenuScores(&sm);
 
-    // Simuler un score du joueur
-    int scoreJoueur = 1500;
-
-    // Ouvrir directement le sous-menu avec saisie du nom
-    sm.visible  = 1;
-    sm.enSaisie = 1;
-
-    // ── GAME LOOP ─────────────────────────────────────────
-    int continuer = 1;
+    int scoreJoueur = 1500; // score simulé
+    int continuer   = 1;
     SDL_Event event;
 
+    // ── GAME LOOP ─────────────────────────────────────────
     while (continuer) {
 
-        // LECTURE EVENEMENTS
         while (SDL_PollEvent(&event)) {
-            if (event.type == SDL_QUIT) {
-                continuer = 0;
-            }
-            // Passer les events au sous-menu scores
-            inputSousMenuScores(&sm, &event, scoreJoueur);
+            if (event.type == SDL_QUIT) continuer = 0;
 
-            // Si le sous-menu est fermé → quitter
-            if (!sm.visible) {
-                continuer = 0;
+            // Input menu principal
+            if (menu.visible && !sm.visible) {
+                int clique = inputMenu(&menu, &event);
+
+                if (clique == 0) {
+                    // Jouer
+                    printf("Jouer cliqué\n");
+                }
+                else if (clique == 1) {
+                    // Options
+                    printf("Options cliqué\n");
+                }
+                else if (clique == 2) {
+                    // Meilleurs Scores → ouvrir sous-menu
+                    sm.visible  = 1;
+                    sm.enSaisie = 1;
+                    menu.visible = 0;
+                }
+                else if (clique == 3) {
+                    // Quitter
+                    continuer = 0;
+                }
+            }
+
+            // Input sous-menu scores
+            if (sm.visible) {
+                inputSousMenuScores(&sm, &event, scoreJoueur);
+
+                // Quand scores fermé → retour menu
+                if (!sm.visible) {
+                    menu.visible = 1;
+                }
             }
         }
 
-        // AFFICHAGE
-        SDL_SetRenderDrawColor(ren, 40, 40, 40, 255);
+        // ── AFFICHAGE ─────────────────────────────────────
+        SDL_SetRenderDrawColor(ren, 30, 30, 60, 255);
         SDL_RenderClear(ren);
 
-        // Afficher le sous-menu scores
-        afficherSousMenuScores(ren, &sm, font);
+        // Afficher menu OU sous-menu scores
+        if (menu.visible) {
+            afficherMenu(ren, &menu, font);
+        }
+        if (sm.visible) {
+            afficherSousMenuScores(ren, &sm, font);
+        }
 
         SDL_RenderPresent(ren);
         SDL_Delay(16);
     }
 
-    // ── LIBERATION MEMOIRE ────────────────────────────────
+    // ── LIBERATION ────────────────────────────────────────
     TTF_CloseFont(font);
     SDL_DestroyRenderer(ren);
     SDL_DestroyWindow(win);
@@ -82,6 +100,5 @@ int main() {
     TTF_Quit();
     IMG_Quit();
     SDL_Quit();
-
     return 0;
 }
