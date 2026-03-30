@@ -4,6 +4,12 @@
 #include <SDL2/SDL_mixer.h>
 #include "scores.h"
 #include "menu.h"
+#include "jeu.h"
+
+// Etats du jeu
+#define ETAT_MENU   0
+#define ETAT_JEU    1
+#define ETAT_SCORES 2
 
 int main() {
     SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO);
@@ -25,14 +31,16 @@ int main() {
         22);
 
     // ── INIT ─────────────────────────────────────────────
-    Menu menu;
-    initMenu(&menu);
-
+    Menu           menu;
     SousMenuScores sm;
-    initSousMenuScores(&sm);
+    Jeu            jeu;
 
-    int scoreJoueur = 1500; // score simulé
-    int continuer   = 1;
+    initMenu(&menu);
+    initSousMenuScores(&sm);
+    initJeu(&jeu);
+
+    int etat      = ETAT_MENU;
+    int continuer = 1;
     SDL_Event event;
 
     // ── GAME LOOP ─────────────────────────────────────────
@@ -41,38 +49,59 @@ int main() {
         while (SDL_PollEvent(&event)) {
             if (event.type == SDL_QUIT) continuer = 0;
 
-            // Input menu principal
-            if (menu.visible && !sm.visible) {
+            // ── ETAT MENU ─────────────────────────────────
+            if (etat == ETAT_MENU) {
                 int clique = inputMenu(&menu, &event);
 
                 if (clique == 0) {
-                    // Jouer
-                    printf("Jouer cliqué\n");
-                }
-                else if (clique == 1) {
-                    // Options
-                    printf("Options cliqué\n");
+                    // Jouer → lancer le jeu
+                    initJeu(&jeu);
+                    etat = ETAT_JEU;
                 }
                 else if (clique == 2) {
                     // Meilleurs Scores → ouvrir sous-menu
                     sm.visible  = 1;
-                    sm.enSaisie = 1;
-                    menu.visible = 0;
+                    sm.enSaisie = 0; // pas de saisie ici
+                    etat = ETAT_SCORES;
                 }
                 else if (clique == 3) {
-                    // Quitter
                     continuer = 0;
                 }
             }
 
-            // Input sous-menu scores
-            if (sm.visible) {
-                inputSousMenuScores(&sm, &event, scoreJoueur);
+            // ── ETAT JEU ──────────────────────────────────
+            else if (etat == ETAT_JEU) {
+                inputJeu(&jeu, &event);
 
-                // Quand scores fermé → retour menu
-                if (!sm.visible) {
+                // Partie terminée → aller aux scores
+                if (jeu.termine) {
+                    sm.visible  = 1;
+                    sm.enSaisie = 1; // saisie du nom
+                    etat = ETAT_SCORES;
+                }
+            }
+
+            // ── ETAT SCORES ───────────────────────────────
+            else if (etat == ETAT_SCORES) {
+                // Passer le VRAI score du jeu
+                int retour = inputSousMenuScores(&sm, &event,
+                                                 jeu.score);
+                if (retour == 1 || !sm.visible) {
+                    sm.visible = 0;
+                    etat = ETAT_MENU;
                     menu.visible = 1;
                 }
+            }
+        }
+
+        // ── UPDATE ────────────────────────────────────────
+        if (etat == ETAT_JEU) {
+            updateJeu(&jeu);
+            // Partie terminée après update
+            if (jeu.termine) {
+                sm.visible  = 1;
+                sm.enSaisie = 1;
+                etat = ETAT_SCORES;
             }
         }
 
@@ -80,11 +109,13 @@ int main() {
         SDL_SetRenderDrawColor(ren, 30, 30, 60, 255);
         SDL_RenderClear(ren);
 
-        // Afficher menu OU sous-menu scores
-        if (menu.visible) {
+        if (etat == ETAT_MENU) {
             afficherMenu(ren, &menu, font);
         }
-        if (sm.visible) {
+        else if (etat == ETAT_JEU) {
+            afficherJeu(ren, &jeu, font);
+        }
+        else if (etat == ETAT_SCORES) {
             afficherSousMenuScores(ren, &sm, font);
         }
 
