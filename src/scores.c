@@ -4,9 +4,11 @@
 #include <string.h>
 
 void initSousMenuScores(SousMenuScores *sm) {
-    sm->nb       = 0;
-    sm->visible  = 0;
-    sm->enSaisie = 0;
+    sm->nb           = 0;
+    sm->visible      = 0;
+    sm->enSaisie     = 0;
+    sm->retourActif  = 0;
+    sm->boutonRetour = (SDL_Rect){325, 480, 150, 45};
     memset(sm->nomSaisi, 0, sizeof(sm->nomSaisi));
     chargerScores(sm);
 }
@@ -65,11 +67,12 @@ void afficherSousMenuScores(SDL_Renderer *ren,
     SDL_Color blanc = {255, 255, 255, 255};
     SDL_Color jaune = {255, 215,   0, 255};
     SDL_Color rouge = {220,  50,  50, 255};
+    SDL_Color vert  = { 50, 200,  50, 255};
 
     // Fond
     SDL_SetRenderDrawBlendMode(ren, SDL_BLENDMODE_BLEND);
     SDL_SetRenderDrawColor(ren, 0, 0, 0, 210);
-    SDL_Rect fond = {150, 80, 500, 440};
+    SDL_Rect fond = {150, 80, 500, 460};
     SDL_RenderFillRect(ren, &fond);
 
     // Bordure dorée
@@ -85,9 +88,10 @@ void afficherSousMenuScores(SDL_Renderer *ren,
     SDL_FreeSurface(surf);
     SDL_DestroyTexture(tex);
 
-    // Liste
+    // Liste des scores
     if (sm->nb == 0) {
-        surf = TTF_RenderText_Solid(font, "Aucun score enregistre.", blanc);
+        surf = TTF_RenderText_Solid(font,
+               "Aucun score enregistre.", blanc);
         tex  = SDL_CreateTextureFromSurface(ren, surf);
         dest = (SDL_Rect){220, 200, surf->w, surf->h};
         SDL_RenderCopy(ren, tex, NULL, &dest);
@@ -97,10 +101,12 @@ void afficherSousMenuScores(SDL_Renderer *ren,
         for (int i = 0; i < sm->nb; i++) {
             char ligne[100];
             sprintf(ligne, "%d.  %-20s   %d pts",
-                    i + 1, sm->liste[i].nom, sm->liste[i].score);
+                    i + 1, sm->liste[i].nom,
+                    sm->liste[i].score);
             surf = TTF_RenderText_Solid(font, ligne, blanc);
             tex  = SDL_CreateTextureFromSurface(ren, surf);
-            dest = (SDL_Rect){190, 170 + i * 45, surf->w, surf->h};
+            dest = (SDL_Rect){190, 170 + i * 45,
+                              surf->w, surf->h};
             SDL_RenderCopy(ren, tex, NULL, &dest);
             SDL_FreeSurface(surf);
             SDL_DestroyTexture(tex);
@@ -110,34 +116,77 @@ void afficherSousMenuScores(SDL_Renderer *ren,
     // Saisie nom
     if (sm->enSaisie) {
         char prompt[100];
-        sprintf(prompt, "Entrez votre nom : %s_", sm->nomSaisi);
+        sprintf(prompt, "Entrez votre nom : %s_",
+                sm->nomSaisi);
         surf = TTF_RenderText_Solid(font, prompt, rouge);
         tex  = SDL_CreateTextureFromSurface(ren, surf);
-        dest = (SDL_Rect){180, 420, surf->w, surf->h};
+        dest = (SDL_Rect){180, 430, surf->w, surf->h};
         SDL_RenderCopy(ren, tex, NULL, &dest);
         SDL_FreeSurface(surf);
         SDL_DestroyTexture(tex);
     }
 
-    // Instruction
-    surf = TTF_RenderText_Solid(font, "ECHAP = fermer", blanc);
+    // ── BOUTON RETOUR ─────────────────────────────────────
+    if (sm->retourActif) {
+        SDL_SetRenderDrawColor(ren, 180, 140, 0, 255);
+    } else {
+        SDL_SetRenderDrawColor(ren, 60, 60, 60, 255);
+    }
+    SDL_RenderFillRect(ren, &sm->boutonRetour);
+
+    SDL_SetRenderDrawColor(ren, 255, 255, 255, 255);
+    SDL_RenderDrawRect(ren, &sm->boutonRetour);
+
+    surf = TTF_RenderText_Solid(font, "Retour", vert);
     tex  = SDL_CreateTextureFromSurface(ren, surf);
-    dest = (SDL_Rect){300, 475, surf->w, surf->h};
+    dest = (SDL_Rect){
+        sm->boutonRetour.x + (sm->boutonRetour.w - surf->w) / 2,
+        sm->boutonRetour.y + (sm->boutonRetour.h - surf->h) / 2,
+        surf->w, surf->h
+    };
     SDL_RenderCopy(ren, tex, NULL, &dest);
     SDL_FreeSurface(surf);
     SDL_DestroyTexture(tex);
 }
 
-void inputSousMenuScores(SousMenuScores *sm,
-                          SDL_Event *e,
-                          int scoreJoueur) {
-    if (!sm->visible) return;
+// Retourne 1 si bouton Retour cliqué, sinon 0
+int inputSousMenuScores(SousMenuScores *sm,
+                         SDL_Event *e,
+                         int scoreJoueur) {
+    if (!sm->visible) return 0;
+
+    // Survol bouton Retour
+    if (e->type == SDL_MOUSEMOTION) {
+        int mx = e->motion.x;
+        int my = e->motion.y;
+        SDL_Rect *r = &sm->boutonRetour;
+        sm->retourActif =
+            (mx >= r->x && mx <= r->x + r->w &&
+             my >= r->y && my <= r->y + r->h) ? 1 : 0;
+    }
+
+    // Clic bouton Retour
+    if (e->type == SDL_MOUSEBUTTONDOWN &&
+        e->button.button == SDL_BUTTON_LEFT) {
+        int mx = e->button.x;
+        int my = e->button.y;
+        SDL_Rect *r = &sm->boutonRetour;
+        if (mx >= r->x && mx <= r->x + r->w &&
+            my >= r->y && my <= r->y + r->h) {
+            sm->visible  = 0;
+            sm->enSaisie = 0;
+            memset(sm->nomSaisi, 0, sizeof(sm->nomSaisi));
+            return 1; // retour cliqué
+        }
+    }
 
     if (e->type == SDL_KEYDOWN) {
+        // ECHAP = fermer aussi
         if (e->key.keysym.sym == SDLK_ESCAPE) {
             sm->visible  = 0;
             sm->enSaisie = 0;
             memset(sm->nomSaisi, 0, sizeof(sm->nomSaisi));
+            return 1;
         }
 
         if (sm->enSaisie) {
@@ -147,7 +196,8 @@ void inputSousMenuScores(SousMenuScores *sm,
                 int len = strlen(sm->nomSaisi);
                 if (len > 0) sm->nomSaisi[len - 1] = '\0';
             }
-            else if (k == SDLK_RETURN && strlen(sm->nomSaisi) > 0) {
+            else if (k == SDLK_RETURN &&
+                     strlen(sm->nomSaisi) > 0) {
                 sauvegarderScore(sm, sm->nomSaisi, scoreJoueur);
                 sm->enSaisie = 0;
                 memset(sm->nomSaisi, 0, sizeof(sm->nomSaisi));
@@ -161,4 +211,5 @@ void inputSousMenuScores(SousMenuScores *sm,
             }
         }
     }
+    return 0;
 }

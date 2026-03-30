@@ -18,6 +18,8 @@ typedef struct {
     int        visible;
     char       nomSaisi[50];
     int        enSaisie;
+    SDL_Rect   boutonRetour;  // nouveau
+    int        retourActif;   // 1 = souris dessus
 } SousMenuScores;
 
 void initSousMenuScores(SousMenuScores *sm);
@@ -25,6 +27,6 @@ void chargerScores(SousMenuScores *sm);
 void sauvegarderScore(SousMenuScores *sm, char *nom, int score);
 void trierScores(SousMenuScores *sm);
 void afficherSousMenuScores(SDL_Renderer *ren, SousMenuScores *sm, TTF_Font *font);
-void inputSousMenuScores(SousMenuScores *sm, SDL_Event *e, int scoreJoueur);
+int  inputSousMenuScores(SousMenuScores *sm, SDL_Event *e, int scoreJoueur);
 
 #endif
