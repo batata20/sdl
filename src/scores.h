@@ -10,6 +10,7 @@
 typedef struct {
     char nom[50];
     int  score;
+    char date[20];  // nouveau : date du score
 } ScoreEntry;
 
 typedef struct {
@@ -18,8 +19,9 @@ typedef struct {
     int        visible;
     char       nomSaisi[50];
     int        enSaisie;
-    SDL_Rect   boutonRetour;  // nouveau
-    int        retourActif;   // 1 = souris dessus
+    SDL_Rect   boutonRetour;
+    int        retourActif;
+    int        rangJoueur;  // nouveau : rang après saisie
 } SousMenuScores;
 
 void initSousMenuScores(SousMenuScores *sm);
